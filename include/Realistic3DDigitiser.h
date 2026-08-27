@@ -1,0 +1,65 @@
+#ifndef REALISTIC3DDIGITISER_H
+#define REALISTIC3DDIGITISER_H
+
+#include "Gaudi/Property.h"
+#include "k4FWCore/Transformer.h"
+
+#include "edm4hep/EventHeaderCollection.h"
+#include "edm4hep/SimTrackerHitCollection.h"
+#include "edm4hep/TrackerHitPlaneCollection.h"
+
+#include "k4Interface/IGeoSvc.h"
+
+struct Realistic3DDigitiser final
+    : k4FWCore::MultiTransformer<
+          edm4hep::TrackerHitPlaneCollection(
+              const edm4hep::SimTrackerHitCollection&,
+              const edm4hep::EventHeaderCollection&)> {
+
+  Realistic3DDigitiser(const std::string& name,
+              ISvcLocator* svcLoc);
+
+  StatusCode initialize() override;
+
+  edm4hep::TrackerHitPlaneCollection
+  operator()(const edm4hep::SimTrackerHitCollection& simHits,
+             const edm4hep::EventHeaderCollection& headers) const override;
+
+private:
+
+  //---------------------------------------------
+  // Configurable properties
+  //---------------------------------------------
+
+  Gaudi::Property<std::string> m_subDetName{
+      this,
+      "SubDetectorName",
+      "VertexBarrel",
+      "Subdetector name"};
+
+  Gaudi::Property<double> m_energyCut{
+      this,
+      "EnergyCut",
+      0.0,
+      "Minimum deposited energy"};
+
+  // TODO: 3D-sensor-specific properties go here 
+  // once the digitization physics is implemented.
+
+  //---------------------------------------------
+  // Services
+  //---------------------------------------------
+
+  Gaudi::Property<std::string> m_geoSvcName{
+      this,
+      "GeoSvcName",
+      "GeoSvc",
+      "Geometry service"};
+
+  SmartIF<IGeoSvc> m_geoSvc;
+
+};
+
+DECLARE_COMPONENT(Realistic3DDigitiser)
+
+#endif
