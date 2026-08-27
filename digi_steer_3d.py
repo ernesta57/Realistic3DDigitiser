@@ -1,17 +1,13 @@
-'''-------------------------------------------------------------------'''
-'''  digi_steer_3d.py                                                '''
-'''  Same as digi_steer.py, EXCEPT when --do3DDigi is passed: swaps    '''
+'''--------------------------------------------------------------------'''
+'''  digi_steer_3d.py                                                  '''
+'''  Same as digi_steer.py, except when --do3DDigi is passed swaps     '''
 '''  the VXD (vertex barrel/endcap) digitizer for Realistic3DDigitiser '''
 '''  without editing anything inside mucoll-benchmarks. Everything     '''
 '''  else (calorimeters, IT, OT, overlay, etc.) is built exactly as    '''
 '''  digiAlgList.py already does.                                      '''
-'''-------------------------------------------------------------------'''
+'''--------------------------------------------------------------------'''
 from GaudiKernel.Constants import INFO, WARNING
 
-# --do3DDigi needs to be registered on the SAME shared parser instance
-# that digi_args.py's get_digi_args() uses internally, before it parses -
-# argparse only sees flags that were added before parse_known_args() is
-# called.
 from k4FWCore.parseArgs import parser
 parser.add_argument(
     "--do3DDigi",
@@ -27,20 +23,13 @@ args = get_digi_args()
 from digi_components.digi_services import set_digi_services
 [evtsvc, geoservice, id_service] = set_digi_services(args)
 
-# Import the Algorithm List - built exactly as digiAlgList.py normally
-# would (no edits to that file), using whatever combination of
-# doRealisticDigi/doOverlayFull etc. the user passed.
+# Import the Algorithm List
 from digiAlgList import makeDigiAlgList
 algList = makeDigiAlgList(args)
 
 if args.do3DDigi:
     from Configurables import Realistic3DDigitiser, TrackerHitTimeWindowFilter
 
-    # Names produced by tracking_vertex.py's new_VXDBarrel[/_Realistic]
-    # and new_VXDEndcap[/_Realistic], plus the time-filter algorithms
-    # digiAlgList.py adds alongside the realistic path. Whichever branch
-    # was actually taken (simple or realistic) depends on
-    # args.doRealisticDigi, so we cover both name sets.
     vxd_names_to_remove = {
         "VXDBarrelDigitiser", "VXDEndcapDigitiser",            # simple (DDPlanarDigi) branch
         "VertexBarrelDigitiser", "VertexEndcapDigitiser",      # realistic (MuonCVXDDigitiser) branch
