@@ -17,35 +17,37 @@ Realistic3DDigitiser::Realistic3DDigitiser(const std::string& name,
                         {"EventHeader"})
           },
 
-          // Outputs
           {
-              KeyValues("OutputHits",
-                        {"VXDBarrelHits"})
+              KeyValues("OutputCollectionName",
+                        {"VXDBarrelHits"}),
+
+              KeyValues("RelationColName",
+                        {"VXDBarrelHitsRelations"}),
+
+              KeyValues("RawHitsLinkColName",
+                        {"VXDBarrelRawHitsRelations"}),
+
+              KeyValues("SimHitLocCollectionName",
+                        {"VertexBarrelHits_Passed"})
           }) {
 
 }
 StatusCode Realistic3DDigitiser::initialize() {
 
-    m_geoSvc = serviceLocator()->service(m_geoSvcName);
-
-    if (!m_geoSvc) {
-        error() << "Cannot retrieve GeoSvc" << endmsg;
-        return StatusCode::FAILURE;
-    }
-
-    // TODO: look up the 3D-sensor geometry/readout parameters for
-    // m_subDetName from m_geoSvc here 
-
     info() << "Initialization successful" << endmsg;
 
     return StatusCode::SUCCESS;
 }
-edm4hep::TrackerHitPlaneCollection
+std::tuple<edm4hep::TrackerHitPlaneCollection, edm4hep::TrackerHitSimTrackerHitLinkCollection,
+           edm4hep::TrackerHitSimTrackerHitLinkCollection, edm4hep::SimTrackerHitCollection>
 Realistic3DDigitiser::operator()(
         const edm4hep::SimTrackerHitCollection& simHits,
         const edm4hep::EventHeaderCollection& headers) const {
 
-    auto output = edm4hep::TrackerHitPlaneCollection();
+    auto outputHits = edm4hep::TrackerHitPlaneCollection();
+    auto relCol = edm4hep::TrackerHitSimTrackerHitLinkCollection();
+    auto rawHitsCol = edm4hep::TrackerHitSimTrackerHitLinkCollection();
+    auto simHitLocCol = edm4hep::SimTrackerHitCollection();
 
     debug() << "Processing event "
             << headers[0].getEventNumber()
@@ -61,11 +63,13 @@ Realistic3DDigitiser::operator()(
             continue;
 
         // TODO:
-        //   - group/cluster SimTrackerHits using a 3D sensor charge-
-        //     collection model
-        //   - apply realistic position smearing based on the 3D-sensor
-        //     resolution model
-        auto outHit = output.create();
+        //   - ProduceIonisationPoints: can be reused
+        //   - ProduceSignalPoints: The planar version computes diffusion 
+        //     sigma from 'DistanceToPlane'; the 3D equivalent needs
+        //     DistanceToNearestColumn instead
+        //   - ProduceHits: pixel thresholding/clustering logic can
+        //     likely be reused
+        auto outHit = outputHits.create();
 
         outHit.setCellID(hit.getCellID());
         outHit.setPosition(hit.getPosition());
@@ -74,5 +78,5 @@ Realistic3DDigitiser::operator()(
 
     }
 
-    return output;
+    return std::make_tuple(std::move(outputHits), std::move(relCol), std::move(rawHitsCol), std::move(simHitLocCol));
 }
