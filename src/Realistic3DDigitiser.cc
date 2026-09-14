@@ -86,7 +86,10 @@ StatusCode Realistic3DDigitiser::initialize() {
     debug() << "Column grid: pitchX=" << m_columnGrid.pitchX
             << ", pitchY=" << m_columnGrid.pitchY
             << ", columnRadius=" << m_columnGrid.columnRadius << endmsg;
-
+	
+    m_columnGrid.offsetX = 0.5 * m_columnGrid.pitchX;
+    m_columnGrid.offsetY = 0.5 * m_columnGrid.pitchY;
+    
     //return StatusCode::SUCCESS;
     return LoadGeometry();
 }
