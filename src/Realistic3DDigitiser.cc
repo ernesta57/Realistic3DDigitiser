@@ -733,6 +733,21 @@ void Realistic3DDigitiser::ProduceSignalPoints(InternalState *intState) const{
 
         // 3D sensor: charge drifts laterally to the nearest
         // readout column (see ColumnGrid.h).
+        SignalPoint spoint; 
+
+        // charge which originates inside a column should not 
+        // be collected. 
+        if (m_columnGrid.InColumnDeadZone(x, y)) {
+            spoint.x = x;
+            spoint.y = y;
+            spoint.sigmaX = 0.0;
+            spoint.sigmaY = 0.0;
+            spoint.charge = 0.0;
+            intState->signalPoints[i] = spoint;
+            debug() << "- " << i << ": inside column dead zone..." << endmsg;
+            continue;
+        }
+
         double colX, colY;
         m_columnGrid.NearestColumn(x, y, colX, colY);
         double DistanceToColumn = m_columnGrid.DistanceToNearestColumn(x, y);
