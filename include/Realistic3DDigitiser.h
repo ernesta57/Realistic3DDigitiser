@@ -84,8 +84,8 @@ struct TempRecoHit {
 
 
 /**  Digitizer for Simulated Hits in the Vertex Detector. <br>
- * Digitization follows the procedure adopted in the CMS software package. 
- * See https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuidePixelDigitization
+ * Digitization follows the procedure in the CMS software package. 
+ * https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuidePixelDigitization
  * 
  * @param CollectionName name of input SimTrackerHit collection <br>
  * (default parameter value : "VXDCollection")
@@ -96,8 +96,11 @@ struct TempRecoHit {
  * @param SubDetectorName name of the detector <br>
  * (default parameter value : "VertexBarrel")
  * @param TanLorentz tangent of the Lorentz angle <br>
+ * NOT USED by this digitiser's 3D model
+ * Left declared, unused, in case a future model needs it. <br>
  * (default parameter value : 0.8) <br>
  * @param TanLorentzY tangent of the Lorentz angle along Y <br>
+ * NOT USED. <br>
  * (default parameter value : 0) <br>
  * @param CutOnDeltaRays cut on the energy of delta-electrons (in MeV) <br>
  * (default parameter value : 0.03) <br>
@@ -107,6 +110,22 @@ struct TempRecoHit {
  * (default value : 0.025) <br>
  * @param PixelSizeY pixel size along beam axis (in mm) <br>
  * (default value : 0.025) <br>
+ * @param ColumnPitchX readout-electrode (column) pitch along x (in mm) <br>
+ * -1 defaults to PixelSizeX, one readout column per pixel <br>
+ * (default parameter value : -1.0) <br>
+ * @param ColumnPitchY readout-electrode (column) pitch along y (in mm) <br>
+ * -1 defaults to PixelSizeY <br>
+ * (default parameter value : -1.0) <br>
+ * @param ColumnRadius physical radius of the readout column/electrode (in mm) <br>
+ * charge landing within this radius of a column centre is dropped <br>
+ * (default parameter value : 0.0025) <br>
+ * @param BiasElectrodesEnabled model dead zones from the corner bias/ohmic
+ * electrodes, shared between neighbouring pixel cells
+ * (see CMS Pixel3DDigitizerAlgorithm's is_inside_ohmic_column_) <br>
+ * (default parameter value : false) <br>
+ * @param BiasColumnRadius physical radius of the bias/ohmic electrode (in
+ * mm), only used if BiasElectrodesEnabled is set <br>
+ * (default parameter value : 0.0025) <br>
  * @param ElectronsPerMeV number of electrons produced per MeV of deposited energy <br>
  * (default parameter value : 270.3) <br>
  * @param Threshold threshold on charge deposited on one pixel (in electons) <br>
@@ -193,6 +212,8 @@ protected:
     Gaudi::Property<double> m_columnPitchX{this, "ColumnPitchX", (double)-1.0, "Readout-column pitch in x (mm). -1 = default to PixelSizeX."};
     Gaudi::Property<double> m_columnPitchY{this, "ColumnPitchY", (double)-1.0, "Readout-column pitch in y (mm). -1 = default to PixelSizeY."};
     Gaudi::Property<double> m_columnRadius{this, "ColumnRadius", (double)0.0025, "3D-sensor column/electrode radius (mm)."};
+    Gaudi::Property<bool>   m_biasElectrodesEnabled{this, "BiasElectrodesEnabled", false, "Model corner bias/ohmic electrode dead zones, shared between neighbouring pixel cells."};
+    Gaudi::Property<double> m_biasColumnRadius{this, "BiasColumnRadius", (double)0.0025, "3D-sensor bias/ohmic electrode radius (mm). Only used if BiasElectrodesEnabled."};
     Gaudi::Property<double> m_electronsPerKeV{this, "ElectronsPerKeV", (double)270.3, "Electrons per keV"};
     Gaudi::Property<double> m_segmentLength{this, "SegmentLength", (double)0.005, "Segment Length in mm"};
     Gaudi::Property<double> m_threshold{this, "Threshold", (double)500., "Cell Threshold in electrons"};
@@ -251,7 +272,7 @@ protected:
     const dd4hep::rec::SurfaceMap* m_map;
 
     // populated in initialize() from m_columnPitchX/Y, m_columnRadius
-    // (and m_pixelSizeX/Y as the pitch default) -- see ColumnGrid.h
+    // (and m_pixelSizeX/Y as the pitch default), see ColumnGrid.h
     ColumnGrid m_columnGrid;
 
     SmartIF<IGeoSvc>                    m_geoSvc;

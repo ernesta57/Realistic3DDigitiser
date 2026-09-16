@@ -89,7 +89,14 @@ StatusCode Realistic3DDigitiser::initialize() {
 	
     m_columnGrid.offsetX = 0.5 * m_columnGrid.pitchX;
     m_columnGrid.offsetY = 0.5 * m_columnGrid.pitchY;
-    
+
+    m_columnGrid.biasElectrodesEnabled = m_biasElectrodesEnabled.value();
+    m_columnGrid.biasColumnRadius = m_biasColumnRadius.value();
+    if (m_columnGrid.biasElectrodesEnabled) {
+        debug() << "Bias electrode dead zones enabled: biasColumnRadius="
+                << m_columnGrid.biasColumnRadius << endmsg;
+    }
+
     //return StatusCode::SUCCESS;
     return LoadGeometry();
 }
@@ -766,7 +773,6 @@ void Realistic3DDigitiser::ProduceSignalPoints(InternalState *intState) const{
 
         // energy is in keV
         double charge = (ipoint.eloss / dd4hep::keV) * m_electronsPerKeV;
-        SignalPoint  spoint;
         spoint.x = colX;
         spoint.y = colY;
         spoint.sigmaX = SigmaDiff;
