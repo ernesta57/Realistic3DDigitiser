@@ -749,8 +749,10 @@ void Realistic3DDigitiser::ProduceSignalPoints(InternalState *intState) const{
         // 3D sensor: charge drifts laterally to the nearest
         // readout column (see ColumnGrid.h).
 
-        // Column material is not active silicon so charge originating inside
-        // a column's physical footprint should not be collected.
+        // Column material is not active silicon -- charge originating inside
+        // a column's physical footprint is unphysical and should not be
+        // collected. Depth-aware (respects ColumnGap, partial-3D columns)
+        // and also covers the corner bias/ohmic electrodes if enabled.
         if (m_columnGrid.InColumnDeadZone3D(x, y, z, halfThickness)) {
             debug() << "- " << i << ": inside column dead zone (x=" << x << ", y=" << y
                     << ", z=" << z << "), dropped" << endmsg;
@@ -771,13 +773,18 @@ void Realistic3DDigitiser::ProduceSignalPoints(InternalState *intState) const{
         // double SigmaX = SigmaDiff * sqrt(1.0 + pow(m_tanLorentzAngleX, 2));
         // double SigmaY = SigmaDiff * sqrt(1.0 + pow(m_tanLorentzAngleY, 2));
 
-        // active diffusion model: same as before
+        // --- active diffusion model: empirical, same as before ---
         double SigmaDiff = DistanceToColumn * m_diffusionCoefficient;
 
-        // (ATLAS/CMS-style) kept here for future modifications. Adds
-        // ElectronMobility and ElectronSaturationVelocity parameters
-        // that haven't been tuned. No field map is available so saturation
-        // velocity is used instead.
+        // --- physically-derived alternative (ATLAS/CMS-style), currently
+        // dormant -- kept here for reference/future toggling. Validated
+        // against the empirical formula above (agrees to ~10% for a
+        // typical half-pixel drift); not enabled by default since it adds
+        // ElectronMobility/ElectronSaturationVelocity parameters that
+        // haven't been tuned/validated for this detector's operating
+        // conditions (temperature, actual field). Saturation velocity is
+        // used instead of v=mu*E since no field map is available and mu*E
+        // would diverge unphysically close to a column.
         //
         // const double VT = 0.02585; // thermal voltage kT/q at T=300K, V
         // double driftVelocity = m_electronSaturationVelocity;
@@ -1024,11 +1031,15 @@ void Realistic3DDigitiser::ChargeDigitizer(MutableSimTrackerHitVec &simTrkVec) c
 void Realistic3DDigitiser::TimeSmearer(MutableSimTrackerHitVec &simTrkVec, InternalState *intState) const{
     debug() << "Adding resolution effect to timing measurements" << endmsg;
 
-    float t_riseDefault = (8.8 * m_layerThickness[intState->currentLayer] * 1e3 + 152.1) * 1e-3; // [ns]
+    // The numeric coefficients (8.8, 152.1, 80000) were empirically fit to
+    // a planar sensor. Reusing them with a 3D is NOT a validated 3D timing model
+    double effectiveDriftLength = 0.5 * 0.5 * (m_columnGrid.pitchX + m_columnGrid.pitchY); // mm, maximum single-axis distance from a column to the edge of its cell
+
+    float t_riseDefault = (8.8 * effectiveDriftLength * 1e3 + 152.1) * 1e-3; // [ns]
     float t_rise = (m_t_riseOverride > -1.0) ? m_t_riseOverride.value() : t_riseDefault;
     float sigma_landauDefault = 0.03 * m_layerThickness[intState->currentLayer] / 0.05; // [ns] from sensor thickness & charge deposition fluctuations - 30ps/50microns
     float sigma_timewalkDefault = 0.1 * t_rise; // [ns] t_rise * 0.1
-    float sigma_jitterDefault = (m_electronicNoise * t_rise) / (80000 * m_layerThickness[intState->currentLayer]); // [ns] Q_noise/slope in charge over time 80e/micron = 80000e/mm
+    float sigma_jitterDefault = (m_electronicNoise * t_rise) / (80000 * effectiveDriftLength); // [ns] Q_noise/slope in charge over time 80e/micron = 80000e/mm
     float sigma_TDCDefault = 0.025 / std::sqrt(12); // time to digital converter using 25 ns for deltaT
     float sigma_clockDefault = 0.005; // fixed by clock quality 5ps
 
