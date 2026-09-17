@@ -20,9 +20,13 @@ struct ColumnGrid {
   double offsetY       = 0.0;     // offset in mm, if not centred on (0, 0)
 
   // Bias/ohmic electrodes at the four corners of each pixel cell
-  // MS Pixel3DDigitizerAlgorithm::is_inside_ohmic_column_
   bool biasElectrodesEnabled = false;
-  double biasColumnRadius    = 0.0025;  // mm
+  double biasColumnRadius   = 0.0025;  // mm
+
+  // the readout column may not span the full sensor thickness.
+  // columnGap is the portion of the thickness measured from
+  // z = -halfThickness that the readout column does not reach
+  double columnGap = 0.0;  // mm
 
   // Nearest readout-column position to a given (x,y)
   void NearestColumn(double x, double y, double& colX, double& colY) const {
@@ -32,16 +36,28 @@ struct ColumnGrid {
     colY = offsetY + iy * pitchY;
   }
 
-  // Lateral drift distance from (x,y) to the nearest readout column
+  // Lateral (x,y-plane only) drift distance from (x,y) to the nearest
+  // readout column
   double DistanceToNearestColumn(double x, double y) const {
     double colX, colY;
     NearestColumn(x, y, colX, colY);
     return std::sqrt((x - colX) * (x - colX) + (y - colY) * (y - colY));
   }
 
-  // Nearest bias/ohmic electrode (pixel-cell corner) to a given (x,y).
+  // drift distance to the nearest readout column, for a point
+  // at (x,y,z) in a layer of the given halfThickness. If z falls in the gap 
+  // the point must additionally travel the depth distance to reach the column's end
+  double DistanceToNearestColumn3D(double x, double y, double z, double halfThickness) const {
+    double lateral = DistanceToNearestColumn(x, y);
+    double zBottom = -halfThickness + columnGap;
+    double zClamped = (z < zBottom) ? zBottom : z; // column top is always at +halfThickness
+    double dz = z - zClamped;
+    return std::sqrt(lateral * lateral + dz * dz);
+  }
+
+  // Nearest bias/ohmic electrode to a given (x,y).
   // Readout columns sit at cell centres (offsetX + ix*pitchX); the cell
-  // corners are  half a pitch away from that
+  // corners are half a pitch away from that
   void NearestBiasElectrode(double x, double y, double& biasX, double& biasY) const {
     int ix = static_cast<int>(std::floor(x / pitchX + 0.5));
     int iy = static_cast<int>(std::floor(y / pitchY + 0.5));
@@ -59,6 +75,16 @@ struct ColumnGrid {
   // readout column or a corner bias column.
   bool InColumnDeadZone(double x, double y) const {
     if (DistanceToNearestColumn(x, y) < columnRadius) return true;
+    if (biasElectrodesEnabled && DistanceToNearestBiasElectrode(x, y) < biasColumnRadius) return true;
+    return false;
+  }
+
+  // a point beyond the readout column's reach (z < -halfThickness + columnGap) 
+  // is NOT inside column material, so that volume is normal active silicon.
+  bool InColumnDeadZone3D(double x, double y, double z, double halfThickness) const {
+    double zBottom = -halfThickness + columnGap;
+    bool insideReadoutColumn = (z >= zBottom) && (DistanceToNearestColumn(x, y) < columnRadius);
+    if (insideReadoutColumn) return true;
     if (biasElectrodesEnabled && DistanceToNearestBiasElectrode(x, y) < biasColumnRadius) return true;
     return false;
   }

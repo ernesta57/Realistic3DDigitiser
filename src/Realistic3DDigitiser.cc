@@ -92,9 +92,13 @@ StatusCode Realistic3DDigitiser::initialize() {
 
     m_columnGrid.biasElectrodesEnabled = m_biasElectrodesEnabled.value();
     m_columnGrid.biasColumnRadius = m_biasColumnRadius.value();
+    m_columnGrid.columnGap = m_columnGap.value();
     if (m_columnGrid.biasElectrodesEnabled) {
         debug() << "Bias electrode dead zones enabled: biasColumnRadius="
                 << m_columnGrid.biasColumnRadius << endmsg;
+    }
+    if (m_columnGrid.columnGap > 0) {
+        debug() << "Partial-3D readout column: columnGap=" << m_columnGrid.columnGap << endmsg;
     }
 
     //return StatusCode::SUCCESS;
@@ -730,55 +734,67 @@ void Realistic3DDigitiser::ProduceIonisationPoints(edm4hep::SimTrackerHit &hit, 
 }
 
 void Realistic3DDigitiser::ProduceSignalPoints(InternalState *intState) const{
-    intState->signalPoints.resize(intState->numberOfSegments);
-    // run over ionisation points
+    intState->signalPoints.clear();
+    intState->signalPoints.reserve(intState->numberOfSegments);
     debug() << "Creating signal points" << endmsg;
+
+    double halfThickness = m_layerHalfThickness[intState->currentLayer];
+
     for (int i = 0; i < intState->numberOfSegments; ++i) {
         IonisationPoint ipoint = intState->ionisationPoints[i]; // still local coords
         double x = ipoint.x;
         double y = ipoint.y;
+        double z = ipoint.z;
 
         // 3D sensor: charge drifts laterally to the nearest
         // readout column (see ColumnGrid.h).
-        SignalPoint spoint; 
 
-        // charge which originates inside a column should not 
-        // be collected. 
-        if (m_columnGrid.InColumnDeadZone(x, y)) {
-            spoint.x = x;
-            spoint.y = y;
-            spoint.sigmaX = 0.0;
-            spoint.sigmaY = 0.0;
-            spoint.charge = 0.0;
-            intState->signalPoints[i] = spoint;
-            debug() << "- " << i << ": inside column dead zone..." << endmsg;
+        // Column material is not active silicon so charge originating inside
+        // a column's physical footprint should not be collected.
+        if (m_columnGrid.InColumnDeadZone3D(x, y, z, halfThickness)) {
+            debug() << "- " << i << ": inside column dead zone (x=" << x << ", y=" << y
+                    << ", z=" << z << "), dropped" << endmsg;
             continue;
         }
 
         double colX, colY;
         m_columnGrid.NearestColumn(x, y, colX, colY);
-        double DistanceToColumn = m_columnGrid.DistanceToNearestColumn(x, y);
+        double DistanceToColumn = m_columnGrid.DistanceToNearestColumn3D(x, y, z, halfThickness);
 
         // Lorentz deflection rotates drift velocity into z because E in 3D sensors
         // is lateral. The Lorentz angle does not have an effect because it does not
         // affect which column collects the charge.
-        
+        //
         // double DistanceToPlane = m_layerHalfThickness[intState->currentLayer] - z;
         // double xOnPlane = x + m_tanLorentzAngleX * DistanceToPlane;
         // double yOnPlane = y + m_tanLorentzAngleY * DistanceToPlane;
         // double SigmaX = SigmaDiff * sqrt(1.0 + pow(m_tanLorentzAngleX, 2));
         // double SigmaY = SigmaDiff * sqrt(1.0 + pow(m_tanLorentzAngleY, 2));
-        double dzLorentz = m_tanLorentzAngleX * (x - colX);
+
+        // active diffusion model: same as before
         double SigmaDiff = DistanceToColumn * m_diffusionCoefficient;
+
+        // (ATLAS/CMS-style) kept here for future modifications. Adds
+        // ElectronMobility and ElectronSaturationVelocity parameters
+        // that haven't been tuned. No field map is available so saturation
+        // velocity is used instead.
+        //
+        // const double VT = 0.02585; // thermal voltage kT/q at T=300K, V
+        // double driftVelocity = m_electronSaturationVelocity;
+        // double driftTime = DistanceToColumn / driftVelocity;
+        // double diffusionCoefficient = m_electronMobility * VT;
+        // double SigmaDiff = std::sqrt(2 * diffusionCoefficient * driftTime);
 
         // energy is in keV
         double charge = (ipoint.eloss / dd4hep::keV) * m_electronsPerKeV;
+        SignalPoint spoint;
         spoint.x = colX;
         spoint.y = colY;
+        spoint.z = z;
         spoint.sigmaX = SigmaDiff;
         spoint.sigmaY = SigmaDiff;
         spoint.charge = charge; // electrons x keV
-        intState->signalPoints[i] = spoint;
+        intState->signalPoints.push_back(spoint);
         debug() << "- " << i << ": charge=" << charge
             << ", x="<< colX << "(delta=" << colX - x << ")"
             << ", y="<< colY << "(delta=" << colY - y << ")"
@@ -791,7 +807,7 @@ void Realistic3DDigitiser::ProduceHits(MutableSimTrackerHitVec &simTrkVec, edm4h
     simTrkVec.clear();
     std::map<int, edm4hep::MutableSimTrackerHit*> hit_Dict;
     debug() << "Creating hits" << endmsg;
-    for (int i=0; i < intState->numberOfSegments; ++i) {
+    for (size_t i=0; i < intState->signalPoints.size(); ++i) {
         SignalPoint spoint = intState->signalPoints[i];
         double xCentre = spoint.x;
         double yCentre = spoint.y;

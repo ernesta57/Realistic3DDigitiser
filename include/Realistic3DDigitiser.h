@@ -43,6 +43,7 @@ struct SignalPoint
 {
     double x;
     double y;
+    double z;
     double sigmaX;
     double sigmaY;
     double charge;
@@ -126,6 +127,21 @@ struct TempRecoHit {
  * @param BiasColumnRadius physical radius of the bias/ohmic electrode (in
  * mm), only used if BiasElectrodesEnabled is set <br>
  * (default parameter value : 0.0025) <br>
+ * @param ColumnGap portion of the sensor thickness (in mm),
+ * NOT reached by the readout column <br>
+ * (default parameter value : 0.0, a full-through column) <br>
+ * @param ElectronMobility electron mobility in Si (mm^2/(V*ns)) <br>
+ * NOT CURRENTLY USED <br>
+ * (default parameter value : 1.35e-4) <br>
+ * @param HoleMobility hole mobility in Si (mm^2/(V*ns)) <br>
+ * NOT CURRENTLY USED <br>
+ * (default parameter value : 4.8e-5) <br>
+ * @param ElectronSaturationVelocity electron saturation drift velocity (mm/ns) <br>
+ * NOT CURRENTLY USED <br>
+ * (default parameter value : 0.1) <br>
+ * @param HoleSaturationVelocity hole saturation drift velocity (mm/ns) <br>
+ * NOT CURRENTLY USED <br>
+ * (default parameter value : 0.08) <br>
  * @param ElectronsPerMeV number of electrons produced per MeV of deposited energy <br>
  * (default parameter value : 270.3) <br>
  * @param Threshold threshold on charge deposited on one pixel (in electons) <br>
@@ -214,6 +230,11 @@ protected:
     Gaudi::Property<double> m_columnRadius{this, "ColumnRadius", (double)0.0025, "3D-sensor column/electrode radius (mm)."};
     Gaudi::Property<bool>   m_biasElectrodesEnabled{this, "BiasElectrodesEnabled", false, "Model corner bias/ohmic electrode dead zones, shared between neighbouring pixel cells."};
     Gaudi::Property<double> m_biasColumnRadius{this, "BiasColumnRadius", (double)0.0025, "3D-sensor bias/ohmic electrode radius (mm). Only used if BiasElectrodesEnabled."};
+    Gaudi::Property<double> m_columnGap{this, "ColumnGap", (double)0.0, "Partial-3D: portion of the sensor thickness (mm), measured from the back face, that the readout column does NOT reach. 0 = full-through column (default, matches prior behaviour)."};
+    Gaudi::Property<double> m_electronMobility{this, "ElectronMobility", (double)1.35e-4, "Electron mobility in Si, mm^2/(V*ns) (~1350 cm^2/(V*s) at 300K, Sze). NOT CURRENTLY USED -- see doc comment above."};
+    Gaudi::Property<double> m_holeMobility{this, "HoleMobility", (double)4.8e-5, "Hole mobility in Si, mm^2/(V*ns) (~480 cm^2/(V*s) at 300K, Sze). NOT CURRENTLY USED."};
+    Gaudi::Property<double> m_electronSaturationVelocity{this, "ElectronSaturationVelocity", (double)0.1, "Electron saturation drift velocity, mm/ns (~1e7 cm/s, representative Si value). NOT CURRENTLY USED."};
+    Gaudi::Property<double> m_holeSaturationVelocity{this, "HoleSaturationVelocity", (double)0.08, "Hole saturation drift velocity, mm/ns (~0.8e7 cm/s, representative). NOT CURRENTLY USED."};
     Gaudi::Property<double> m_electronsPerKeV{this, "ElectronsPerKeV", (double)270.3, "Electrons per keV"};
     Gaudi::Property<double> m_segmentLength{this, "SegmentLength", (double)0.005, "Segment Length in mm"};
     Gaudi::Property<double> m_threshold{this, "Threshold", (double)500., "Cell Threshold in electrons"};
